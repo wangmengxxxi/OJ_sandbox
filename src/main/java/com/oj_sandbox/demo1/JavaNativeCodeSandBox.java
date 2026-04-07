@@ -5,6 +5,8 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.dfa.FoundWord;
+import cn.hutool.dfa.WordTree;
 import com.oj_sandbox.demo1.model.ExecuteCodeRequest;
 import com.oj_sandbox.demo1.model.ExecuteCodeResponse;
 import com.oj_sandbox.demo1.model.ExecuteMessage;
@@ -27,12 +29,24 @@ public class JavaNativeCodeSandBox implements CodeSandBox {
     private static final Charset PROCESS_CHARSET = StandardCharsets.UTF_8;
 
     private static final long TIME_OUT=5000L;
+
+    private static final List<String> blackList = Arrays.asList("Files", "exec");
+
+    private static final WordTree WORD_TREE;
+
+    static {
+        //初始化字典树
+        WORD_TREE = new WordTree();
+        WORD_TREE.addWords(blackList);
+    }
     public static void main(String[] args) {
         JavaNativeCodeSandBox javaNativeCodeSandBox = new JavaNativeCodeSandBox();
         ExecuteCodeRequest executeCodeRequest = new ExecuteCodeRequest();
 //        String code = ResourceUtil.readStr("testCode/simpleComPuteArgs/Main.java", StandardCharsets.UTF_8);
 //        String code = ResourceUtil.readStr("testCode/simpleComPute/Main.java", StandardCharsets.UTF_8);
-            String code =ResourceUtil.readStr("testCode/unsafeCode/SleepError.java",StandardCharsets.UTF_8);
+//            String code =ResourceUtil.readStr("testCode/unsafeCode/SleepError.java",StandardCharsets.UTF_8);
+//        String code =ResourceUtil.readStr("testCode/unsafeCode/MemoryError.java",StandardCharsets.UTF_8);
+        String code =ResourceUtil.readStr("testCode/unsafeCode/ReadFileError.java",StandardCharsets.UTF_8);
         executeCodeRequest.setCode(code);
         executeCodeRequest.setLanguage("java");
         executeCodeRequest.setInputList(Arrays.asList("1 2","1 3"));
@@ -47,6 +61,16 @@ public class JavaNativeCodeSandBox implements CodeSandBox {
         String code = executeCodeRequest.getCode();
         String language = executeCodeRequest.getLanguage();
 
+        //校验代码是否合理
+        //使用字典树
+//        WordTree wordTree =new WordTree();
+        WORD_TREE.addWords(blackList);
+        FoundWord foundWord = WORD_TREE.matchWord(code);
+        if(foundWord!=null){
+            System.out.println("代码中包含黑名单单词："+foundWord.getFoundWord());
+            return null;
+        }
+        //1.把用户代码保存为文件
         String userDir = System.getProperty("user.dir");
         String globalCodePathName=userDir+ File.separator+ GLOBAL_CODE_PATH_NAME;// 全局代码文件路径
         //判断全局代码文件是否存在
@@ -81,6 +105,7 @@ public class JavaNativeCodeSandBox implements CodeSandBox {
 
                 List<String> runCommand = new ArrayList<>();
                 runCommand.add("java");
+                runCommand.add("-Xmx256m");
                 runCommand.add("-Dfile.encoding=UTF-8");
                 runCommand.add("-Dsun.stdout.encoding=UTF-8");
                 runCommand.add("-Dsun.stderr.encoding=UTF-8");
@@ -99,7 +124,7 @@ public class JavaNativeCodeSandBox implements CodeSandBox {
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
-                });
+                }).start();
                 ExecuteMessage executeMessage = ProcessUtils.runProcessAndGetMessage(runProcess, "运行", PROCESS_CHARSET);
 //                ExecuteMessage executeMessage = ProcessUtils.runInteractProcessAndGetMessage(runProcess, inputAgs, PROCESS_CHARSET);
                 System.out.println(executeMessage);
