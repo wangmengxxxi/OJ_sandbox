@@ -157,6 +157,7 @@ public class JavaDockerCodeSandBox implements CodeSandBox {
 
         // docker exec keen_blackwell java -cp /app Main 1 3
         // 执行命令并获取结果
+        //注意execCreateCmd只告诉 Docker "我要执行这个命令"，并生成一个任务ID
         List<ExecuteMessage> executeMessageList = new ArrayList<>();
         for (String inputArgs : inputList) {
             StopWatch stopWatch = new StopWatch();
@@ -234,6 +235,7 @@ public class JavaDockerCodeSandBox implements CodeSandBox {
             statsCmd.exec(statisticsResultCallback);
             try {
                 stopWatch.start();
+                //这里的execStartCmd才是正式执行这个任务
                 dockerClient.execStartCmd(execId)
                         .exec(execStartResultCallback)
                         .awaitCompletion(TIME_OUT, TimeUnit.MILLISECONDS);
